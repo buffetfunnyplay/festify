@@ -38,3 +38,9 @@ jobs:
           npx cap sync android
           cd android
           ./gradlew assembleRelease
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: android/app/build/outputs/apk/release/app-release.unsigned.apk
