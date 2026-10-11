@@ -1,0 +1,244 @@
+# ─────────────────────────────────────────────────────────────
+# Festify — publica o SITE (GitHub Pages) e gera o APK Android + instalador Windows.
+# Roda a cada envio de arquivos ou manualmente em Actions → Run workflow.
+#   • Site:  https://SEU-USUARIO.github.io/SEU-REPOSITORIO/
+#   • APK e instalador do Windows (.exe): aba "Releases" do repositório
+# Para o site funcionar: Settings → Pages → Source: "GitHub Actions".
+# ─────────────────────────────────────────────────────────────
+name: Gerar APK Android
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: festify-build
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Site
+    runs-on: ubuntu-latest
+    outputs:
+      dir: ${{ steps.proj.outputs.dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Encontrar pasta do projeto
+        id: proj
+        run: |
+          PKG=$(find . -maxdepth 3 -name package.json -not -path '*/node_modules/*' | head -1)
+          if [ -z "$PKG" ]; then echo "::error::package.json nao encontrado."; ls -la; exit 1; fi
+          echo "dir=$(dirname "$PKG")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: if [ -f package-lock.json ]; then npm ci || npm install; else npm install; fi
+
+      - name: Gerar icones com a cor/logo da marca
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: if [ -f scripts/brand-assets.mjs ]; then node scripts/brand-assets.mjs; else echo "sem scripts/brand-assets.mjs"; fi
+
+      - name: Guardar icones
+        uses: actions/upload-artifact@v4
+        with:
+          name: brand
+          path: |
+            ${{ steps.proj.outputs.dir }}/assets
+            ${{ steps.proj.outputs.dir }}/desktop/build
+          if-no-files-found: ignore
+
+      - name: Gerar site
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: |
+          if [ -f src/main.jsx ]; then
+            npm run build
+          elif [ -f festify.html ]; then
+            echo "Pasta src nao enviada - usando festify.html"
+            rm -rf dist && mkdir -p dist && cp festify.html dist/index.html
+            if [ -d public ]; then cp -r public/. dist/; fi
+          else
+            echo "::error::Envie a pasta src (ou o arquivo festify.html)."; exit 1
+          fi
+
+      - name: Configurar endereco publico e Supabase
+        working-directory: ${{ steps.proj.outputs.dir }}
+        env:
+          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          VAR_PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+          VAR_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VAR_SUPABASE_KEY: ${{ vars.SUPABASE_KEY }}
+        run: |
+          if [ -f scripts/configure.cjs ]; then node scripts/configure.cjs dist/config.js; fi
+          touch dist/.nojekyll
+
+      - name: Guardar site
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: ${{ steps.proj.outputs.dir }}/dist
+          include-hidden-files: true
+
+      - name: Preparar GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.proj.outputs.dir }}/dist
+
+  pages:
+    name: Publicar site
+    needs: web
+    runs-on: ubuntu-latest
+    continue-on-error: true # se o Pages ainda não estiver ligado, o APK sai mesmo assim
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  apk:
+    name: APK Android
+    needs: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ${{ needs.web.outputs.dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Aceitar licencas do Android SDK
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Instalar dependencias
+        run: if [ -f package-lock.json ]; then npm ci || npm install; else npm install; fi
+
+      - name: Baixar site gerado
+        uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: ${{ needs.web.outputs.dir }}/dist
+
+      - name: Baixar icones
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: brand
+          path: ${{ needs.web.outputs.dir }}
+
+      - name: Criar projeto Android com icone do Festify
+        run: |
+          if [ ! -f capacitor.config.json ]; then
+            echo '{"appId":"app.festify.convites","appName":"Festify","webDir":"dist"}' > capacitor.config.json
+          fi
+          if [ ! -f android/gradlew ]; then
+            rm -rf android
+            npx cap add android
+            if [ -d assets ]; then npx --yes @capacitor/assets@3 generate --android || echo "Icones padrao mantidos"; fi
+          fi
+          # Login com Google: o navegador devolve a pessoa para o app por app.festify.convites://
+          if [ -f scripts/patch-android.cjs ]; then node scripts/patch-android.cjs android/app/src/main/AndroidManifest.xml; fi
+          npx cap sync android
+          grep -q "app.festify.convites" android/app/src/main/AndroidManifest.xml && echo "OK: retorno do login registrado"
+          grep -rq "capacitor-browser\|CapacitorBrowser\|@capacitor/browser" android/capacitor.settings.gradle && echo "OK: plugin do navegador incluido" 
+
+      - name: Compilar APK
+        working-directory: ${{ needs.web.outputs.dir }}/android
+        run: |
+          # Assinatura fixa: cada APK novo instala por cima do anterior sem desinstalar
+          if [ -f ../scripts/debug.keystore ]; then mkdir -p ~/.android && cp ../scripts/debug.keystore ~/.android/debug.keystore; fi
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Festify.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Festify-APK
+          path: ${{ github.workspace }}/Festify.apk
+
+  windows:
+    name: Instalador Windows
+    needs: web
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Baixar site gerado
+        uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: ${{ needs.web.outputs.dir }}/desktop/web
+
+      - name: Baixar icones
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: brand
+          path: ${{ needs.web.outputs.dir }}
+
+      - name: Gerar Festify-Setup.exe
+        if: hashFiles('**/desktop/package.json') != ''
+        working-directory: ${{ needs.web.outputs.dir }}/desktop
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then npm ci || npm install; else npm install; fi
+          npx electron-builder --win nsis --x64 --publish never
+          ls -la release
+
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('**/desktop/package.json') != ''
+        with:
+          name: Festify-Windows
+          path: ${{ needs.web.outputs.dir }}/desktop/release/Festify-Setup.exe
+
+  release:
+    name: Publicar downloads
+    needs: [apk, windows]
+    if: ${{ !cancelled() && (needs.apk.result == 'success' || needs.windows.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Festify-*
+          merge-multiple: true
+          path: downloads
+
+      - run: ls -la downloads
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: festify-${{ github.run_number }}
+          name: Festify ${{ github.run_number }}
+          body: |
+            📱 **Android:** baixe **Festify.apk** no celular e instale.
+            💻 **Windows:** baixe **Festify-Setup.exe** e execute (se aparecer "O Windows protegeu o computador", clique em *Mais informações* → *Executar assim mesmo*).
+            🌐 **Site:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          files: |
+            downloads/Festify.apk
+            downloads/Festify-Setup.exe
+          fail_on_unmatched_files: false
+          make_latest: true
