@@ -27,4 +27,8 @@ jobs:
           echo "VITE_SUPABASE_KEY=${{ vars.SUPABASE_KEY }}" >> .env
 
       - name: Compilar APK Android
-        run: npx cap sync android && cd android && ./gradlew assembleRelease
+        run: |
+          npx cap add android || true
+          npx cap sync android
+          cd android
+          ./gradlew assembleRelease
