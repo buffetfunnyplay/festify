@@ -15,12 +15,6 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Configurar Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
       - name: Instalar Dependências
         run: npm install
 
@@ -37,7 +31,8 @@ jobs:
           npx cap add android || true
           npx cap sync android
           cd android
-          export JAVA_HOME=$JAVA_HOME_17_X64
+          sed -i 's/sourceCompatibility JavaVersion.VERSION_11/sourceCompatibility JavaVersion.VERSION_21/g' app/build.gradle || true
+          sed -i 's/targetCompatibility JavaVersion.VERSION_11/targetCompatibility JavaVersion.VERSION_21/g' app/build.gradle || true
           ./gradlew assembleRelease
 
       - name: Guardar APK
