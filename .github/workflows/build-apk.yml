@@ -58,18 +58,8 @@ jobs:
             ${{ steps.proj.outputs.dir }}/desktop/build
           if-no-files-found: ignore
 
-      - name: Gerar site
-        working-directory: ${{ steps.proj.outputs.dir }}
-        run: |
-          if [ -f src/main.jsx ]; then
-            npm run build
-          elif [ -f festify.html ]; then
-            echo "Pasta src nao enviada - usando festify.html"
-            rm -rf dist && mkdir -p dist && cp festify.html dist/index.html
-            if [ -d public ]; then cp -r public/. dist/; fi
-          else
-            echo "::error::Envie a pasta src (ou o arquivo festify.html)."; exit 1
-          fi
+   - name: Gerar site
+      run: npm run build
 
       - name: Configurar endereco publico e Supabase
         working-directory: ${{ steps.proj.outputs.dir }}
