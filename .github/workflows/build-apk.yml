@@ -37,6 +37,7 @@ jobs:
           npx cap add android || true
           npx cap sync android
           cd android
+          export JAVA_HOME=$JAVA_HOME_17_X64
           ./gradlew assembleRelease
 
       - name: Guardar APK
