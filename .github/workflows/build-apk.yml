@@ -58,8 +58,8 @@ jobs:
             ${{ steps.proj.outputs.dir }}/desktop/build
           if-no-files-found: ignore
 
-   - name: Gerar site
-      run: npm run build
+      - name: Gerar site
+       run: npm run build
 
       - name: Configurar endereco publico e Supabase
         working-directory: ${{ steps.proj.outputs.dir }}
