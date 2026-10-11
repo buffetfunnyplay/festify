@@ -1,0 +1,43 @@
+{
+  "name": "festify",
+  "private": true,
+  "version": "3.0.0",
+  "description": "Festify — Convites Interativos Web com Gestão de RSVP em Tempo Real",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "build:single": "vite build --mode single && node -e \"require('fs').renameSync('dist-single/index.html','dist-single/festify.html')\"",
+    "preview": "vite preview --host",
+    "cap:init": "npx cap add android && npx @capacitor/assets generate --android",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/filesystem": "^8.1.4",
+    "@capacitor/share": "^8.0.3",
+    "@supabase/supabase-js": "^2.117.3",
+    "canvas-confetti": "^1.9.4",
+    "gsap": "^3.15.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.51.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.4.21",
+    "png-to-ico": "^3.0.2",
+    "postcss": "^8.5.6",
+    "sharp": "^0.35.5",
+    "tailwindcss": "^3.4.19",
+    "vite": "^8.0.0",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

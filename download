@@ -1,0 +1,12 @@
+node_modules
+dist
+ios
+.env
+.env.local
+*.log
+.DS_Store
+dist-single
+android
+desktop/web
+desktop/release
+desktop/node_modules

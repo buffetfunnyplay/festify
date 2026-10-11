@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Festify — Convites Interativos</title>
+    <meta name="description" content="Você recebeu um convite! Abra, confira os detalhes e confirme sua presença." />
+    <meta name="theme-color" content="%BRAND%" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta property="og:title" content="Você foi convidado(a)! 🎉" />
+    <meta property="og:description" content="Abra o convite e confirme sua presença." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Festify" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Configuração editável (Supabase / URL pública). Carregada antes do app. -->
+    <script src="./config.js"></script>
+    <!-- Diagnóstico de "tela branca": se o app não montar, explica o motivo -->
+    <script>
+      setTimeout(function () {
+        var root = document.getElementById('root')
+        if (root && root.children.length) return
+        var isFile = location.protocol === 'file:'
+        root.innerHTML =
+          '<div style="min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,sans-serif;background:#faf7ff;color:#1e1b2e">' +
+          '<div style="max-width:440px;text-align:center"><div style="font-size:44px">🎉</div>' +
+          '<h1 style="font-size:20px;margin:10px 0">O Festify não carregou</h1>' +
+          (isFile
+            ? '<p style="color:#6b6390;font-size:14px;line-height:1.6">Este arquivo foi aberto com duplo clique, e o navegador bloqueia os scripts nesse modo.<br><br><b>Opção 1:</b> no terminal, dentro da pasta do projeto, rode <code>npm install</code> e depois <code>npm run dev</code>, e abra <b>http://localhost:5173</b>.<br><b>Opção 2:</b> abra o arquivo <b>festify.html</b> (versão de arquivo único).</p>'
+            : '<p style="color:#6b6390;font-size:14px;line-height:1.6">Atualize o navegador para uma versão recente (Chrome, Safari 16.4+, Edge ou Firefox) e recarregue a página.</p>') +
+          '</div></div>'
+      }, 4000)
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
